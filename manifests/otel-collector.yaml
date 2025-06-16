@@ -1,12 +1,23 @@
-apiVersion: opentelemetry.io/v1alpha1
+# otel-collector.yaml
+
+apiVersion: opentelemetry.io/v1beta1
 kind: OpenTelemetryCollector
 metadata:
   name: collector
   namespace: opentelemetry-operator-system
 spec:
   mode: deployment
-  config: |
+  image: otel/opentelemetry-collector-contrib:0.89.0
+  # Using environment variables from ConfigMap created from .env file
+  envFrom:
+    - configMapRef:
+        name: datadog-env
+  config:
     receivers:
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
       prometheus:
         config:
           scrape_configs:
@@ -19,14 +30,52 @@ spec:
 
     processors:
       batch: {}
+      resourcedetection:
+        detectors: [env, system]
+
+      # resource/redis:
+      #   attributes:
+      #     - key: service.name
+      #       value: redis
+      #       action: insert
+
+      # resource/nginx:
+      #   attributes:
+      #     - key: service.name
+      #       value: nginx
+      #       action: insert
 
     exporters:
-      debug:
-        verbosity: detailed
+      logging:
+        loglevel: debug
+
+      # prometheusremotewrite:
+      #   endpoint: "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
+
+      datadog:
+        api:
+          key: ${DATADOG_API_KEY}
+          site: datadoghq.com
+        metrics:
+          resource_attributes_as_tags: true
+          histograms:
+            mode: distributions   # or 'nobuckets' if you're troubleshooting sketch 403 errors
+          summaries:
+            mode: gauges
+          sums:
+            cumulative_monotonic_mode: to_delta
+
+    extensions:
+      health_check: {}
 
     service:
+      extensions: [health_check]
       pipelines:
         metrics:
           receivers: [prometheus]
-          processors: [batch]
-          exporters: [debug]
+          processors: [resourcedetection, batch]
+          exporters: [datadog, logging]
+        traces:
+          receivers: [otlp]
+          processors: [resourcedetection, batch]
+          exporters: [datadog, logging]
