@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php-app
+  template:
+    metadata:
+      labels:
+        app: php-app
+    spec:
+      containers:
+        - name: php-app
+          image: localhost:5000/test-php:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8021
+          env:
+            # OpenTelemetry SDK Configuration
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=php-app,service.namespace=default,service.version=1.0.0"
+            - name: OTEL_TRACES_SAMPLER
+              value: "parentbased_traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0"
+            - name: OTEL_SERVICE_NAME
+              value: "php-app"
+            # PHP-specific OpenTelemetry settings
+            - name: OTEL_PHP_AUTOLOAD_ENABLED
+              value: "true"
+            - name: OTEL_PHP_TRACES_PROCESSOR
+              value: "batch"
+            - name: OTEL_SERVICE_NAME
+              value: "php-app"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-app
+  namespace: default
+spec:
+  selector:
+    app: php-app
+  ports:
+    - protocol: TCP
+      port: 8021
+      targetPort: 8021
+      nodePort: 30021
+  type: NodePort

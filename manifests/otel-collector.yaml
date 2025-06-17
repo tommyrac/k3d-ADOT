@@ -7,7 +7,20 @@ metadata:
   namespace: opentelemetry-operator-system
 spec:
   mode: deployment
-  image: public.ecr.aws/aws-observability/aws-otel-collector:latest
+  image: public.ecr.aws/aws-observability/aws-otel-collector:v0.43.0
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 400Mi
+  env:
+    - name: GOGC
+      value: "100"
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8888"
   # Using environment variables from ConfigMap created from .env file
   envFrom:
     - configMapRef:
@@ -27,6 +40,10 @@ spec:
             - job_name: 'nginx'
               static_configs:
                 - targets: ['nginx-exporter.default.svc.cluster.local:9113']
+            # - job_name: 'test-flask'
+            #   static_configs:
+            #     - targets: ['test-flask.default.svc.cluster.local:8000']
+            #   metrics_path: '/metrics'
 
     processors:
       batch: {}
@@ -45,37 +62,30 @@ spec:
       #       value: nginx
       #       action: insert
 
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+        path: /
+        
     exporters:
-      logging:
-        loglevel: debug
-
-      # prometheusremotewrite:
-      #   endpoint: "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
-
+      debug:
+        verbosity: detailed
       datadog:
         api:
           key: ${DATADOG_API_KEY}
           site: datadoghq.com
-        metrics:
-          resource_attributes_as_tags: true
-          histograms:
-            mode: distributions   # or 'nobuckets' if you're troubleshooting sketch 403 errors
-          summaries:
-            mode: gauges
-          sums:
-            cumulative_monotonic_mode: to_delta
 
-    extensions:
-      health_check: {}
+      # prometheusremotewrite:
+      #   endpoint: "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
 
     service:
       extensions: [health_check]
       pipelines:
         metrics:
-          receivers: [prometheus]
-          processors: [resourcedetection, batch]
-          exporters: [datadog, logging]
+          receivers: [prometheus, otlp]
+          processors: [batch, resourcedetection]
+          exporters: [debug, datadog]
         traces:
           receivers: [otlp]
-          processors: [resourcedetection, batch]
-          exporters: [datadog, logging]
+          processors: [batch, resourcedetection]
+          exporters: [debug, datadog]

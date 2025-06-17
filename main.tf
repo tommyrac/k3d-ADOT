@@ -31,7 +31,7 @@ provider "helm" {
 
 resource "null_resource" "create_k3d_cluster" {
   provisioner "local-exec" {
-    command = "k3d cluster create otest --agents 3"
+    command = "k3d cluster create otest --agents 4 --config k3d-config.yaml"
   }
 
   triggers = {
@@ -67,7 +67,8 @@ resource "helm_release" "otel_operator" {
 
   repository = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart      = "opentelemetry-operator"
-  version    = "0.90.03"
+  # Using latest version as specific version had connectivity issues
+  # version    = "0.90.3"
 
   # lifecycle {
   #   prevent_destroy = true
@@ -86,6 +87,8 @@ resource "null_resource" "apply_manifests" {
       kubectl apply -f manifests/exporters/redis-exporter.yaml
       kubectl apply -f manifests/exporters/redis-exporter-service.yaml
       kubectl apply -f manifests/exporters/nginx-exporter-service.yaml
+      kubectl apply -f manifests/test-flask.yaml
+      kubectl apply -f manifests/test-php.yaml
     EOT
   }
 }

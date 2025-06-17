@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-flask
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-flask
+  template:
+    metadata:
+      labels:
+        app: test-flask
+    spec:
+      containers:
+        - name: test-flask
+          image: localhost:5000/test-flask:latest
+          imagePullPolicy: IfNotPresent
+          command: ["opentelemetry-instrument"]
+          args: ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=8000"]
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4318"
+            - name: OTEL_PYTHON_DISTRO
+              value: "aws_distro"
+            - name: OTEL_PYTHON_CONFIGURATOR
+              value: "aws_configurator"
+            - name: OTEL_TRACES_SAMPLER
+              value: "parentbased_traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0" # or lower if sampling
+            - name: OTEL_SERVICE_NAME
+              value: test-flask
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-flask
+  namespace: default
+spec:
+  selector:
+    app: test-flask
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      nodePort: 30080
+  type: NodePort
