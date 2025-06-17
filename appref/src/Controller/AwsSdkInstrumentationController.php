@@ -50,6 +50,69 @@ class AwsSdkInstrumentationController
             '<html><body>AWS SDK Instrumentation Sample App Running!</body></html>'
         );
     }
+    
+    #[Route('/datetime')]
+    public function dateTime(): Response
+    {
+        $name = $this->request->query->get('name');
+        
+        // Create a span for this request
+        $endpoint = $this->getEndpoint();
+        $transport = (new GrpcTransportFactory())->create($endpoint . OtlpUtil::method(Signals::TRACE));
+        $exporter = new SpanExporter($transport);
+        
+        // Initialize Span Processor, X-Ray ID generator, Tracer Provider, and Propagator
+        $spanProcessor = new SimpleSpanProcessor($exporter);
+        $idGenerator = new IdGenerator();
+        $tracerProvider = new TracerProvider($spanProcessor, null, null, null, $idGenerator);
+        $tracer = $tracerProvider->getTracer('io.opentelemetry.contrib.php');
+        
+        // Create and activate span
+        $span = $tracer
+                ->spanBuilder('datetime-endpoint')
+                ->setSpanKind(SpanKind::KIND_SERVER)
+                ->startSpan();
+        $scope = $span->activate();
+        
+        try {
+            // Add attributes to the span
+            $span->setAttribute('request.name', $name ?? 'not-provided');
+            
+            // Process the request
+            if ($name === 'test-query') {
+                $currentDateTime = new \DateTime();
+                $response = new JsonResponse([
+                    'status' => 'success',
+                    'datetime' => $currentDateTime->format('Y-m-d H:i:s'),
+                    'timestamp' => $currentDateTime->getTimestamp(),
+                ]);
+            } else {
+                $response = new JsonResponse([
+                    'status' => 'error',
+                    'message' => 'Invalid name parameter. Use name=test-query',
+                ], 400);
+            }
+            
+            // Add response info to span
+            $span->setAttribute('response.status_code', $response->getStatusCode());
+            $span->setStatus(\OpenTelemetry\API\Trace\StatusCode::STATUS_OK);
+            
+            return $response;
+        } catch (\Exception $e) {
+            // Record error in span
+            $span->recordException($e);
+            $span->setStatus(\OpenTelemetry\API\Trace\StatusCode::STATUS_ERROR, $e->getMessage());
+            
+            return new JsonResponse([
+                'status' => 'error',
+                'message' => 'An error occurred: ' . $e->getMessage(),
+            ], 500);
+        } finally {
+            // End the span and scope
+            $span->end();
+            $scope->detach();
+        }
+    }
 
     private function convertOtelTraceIdToXrayFormat(String $otelTraceId) : String
     {
@@ -225,6 +288,6 @@ class AwsSdkInstrumentationController
         if (Configuration::has(Variables::OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)) {
             return Configuration::getString(Variables::OTEL_EXPORTER_OTLP_TRACES_ENDPOINT);
         }
-        return 'http://0.0.0.0:4317';
+        return 'http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317';
     }
 }
