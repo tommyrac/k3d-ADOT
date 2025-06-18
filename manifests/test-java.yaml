@@ -33,12 +33,13 @@ spec:
             value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
           - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
             value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+          - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+            value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
           - name: OTEL_EXPORTER_OTLP_PROTOCOL
             value: "grpc"
           - name: OTEL_SERVICE_NAME
             value: "test-java"
-          # OpenTelemetry SDK will be used by the pre-built Java app
-          # The JAVA_TOOL_OPTIONS with agent has been removed as the agent JAR is not available
+          # Note: JAVA_TOOL_OPTIONS is set in the Dockerfile
 
 ---
 apiVersion: v1
