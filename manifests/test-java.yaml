@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-java
+  namespace: default
+  labels:
+    app: test-java
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-java
+  template:
+    metadata:
+      labels:
+        app: test-java
+    spec:
+      containers:
+      - name: test-java
+        image: localhost:5000/test-java:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8050
+        env:
+          # OpenTelemetry SDK Configuration
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: "service.name=test-java,service.namespace=default,service.version=1.0.0"
+          - name: OTEL_TRACES_SAMPLER
+            value: "parentbased_traceidratio"
+          - name: OTEL_TRACES_SAMPLER_ARG
+            value: "1.0"
+          - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+            value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+          - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+            value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+          - name: OTEL_EXPORTER_OTLP_PROTOCOL
+            value: "grpc"
+          - name: OTEL_SERVICE_NAME
+            value: "test-java"
+          # OpenTelemetry SDK will be used by the pre-built Java app
+          # The JAVA_TOOL_OPTIONS with agent has been removed as the agent JAR is not available
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-java
+  namespace: default
+spec:
+  selector:
+    app: test-java
+  ports:
+    - protocol: TCP
+      port: 8050
+      targetPort: 8080
+      nodePort: 30050
+  type: NodePort

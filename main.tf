@@ -89,6 +89,7 @@ resource "null_resource" "apply_manifests" {
       kubectl apply -f manifests/exporters/nginx-exporter-service.yaml
       kubectl apply -f manifests/test-flask.yaml
       kubectl apply -f manifests/test-php.yaml
+      kubectl apply -f manifests/test-java.yaml
     EOT
   }
 }
