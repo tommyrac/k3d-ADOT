@@ -15,32 +15,46 @@ spec:
     spec:
       containers:
         - name: test-dotnet
-          image: localhost:5000/test-dotnet:latest
+          image: localhost:5000/test-dotnet:latest8
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8090
           env:
+            # OpenTelemetry configuration
+            - name: AWS_PLUGIN_DISABLE
+              value: "true"
+            - name: OS_TYPE
+              value: "linux-glibc"
+            - name: ARCHITECTURE
+              value: "arm64"   # or "x64" if your container is x86_64
+            - name: AWS_LAMBDA_FUNCTION_NAME
+              value: ""
+            - name: OTEL_DOTNET_AUTO_HOME
+              value: "/root/.otel-dotnet-auto"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "service.name=test-dotnet,service.namespace=default,service.version=1.0.0"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+              value: "grpc"
             - name: OTEL_TRACES_SAMPLER
-              value: "parentbased_traceidratio"
+              value: "always_on"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "1.0"
             - name: OTEL_SERVICE_NAME
               value: "test-dotnet"
             - name: ASPNETCORE_URLS
               value: "http://+:8090"
-            # .NET specific OpenTelemetry settings
-            - name: OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED
-              value: "true"
-            - name: OTEL_DOTNET_AUTO_TRACES_ENABLED
-              value: "true"
-            - name: OTEL_DOTNET_AUTO_METRICS_ENABLED
-              value: "true"
-            - name: OTEL_DOTNET_AUTO_LOGS_ENABLED
-              value: "true"
+
+
 ---
 apiVersion: v1
 kind: Service
