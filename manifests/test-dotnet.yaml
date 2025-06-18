@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dotnet
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-dotnet
+  template:
+    metadata:
+      labels:
+        app: test-dotnet
+    spec:
+      containers:
+        - name: test-dotnet
+          image: localhost:5000/test-dotnet:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8090
+          env:
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=test-dotnet,service.namespace=default,service.version=1.0.0"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
+            - name: OTEL_TRACES_SAMPLER
+              value: "parentbased_traceidratio"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0"
+            - name: OTEL_SERVICE_NAME
+              value: "test-dotnet"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8090"
+            # .NET specific OpenTelemetry settings
+            - name: OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED
+              value: "true"
+            - name: OTEL_DOTNET_AUTO_TRACES_ENABLED
+              value: "true"
+            - name: OTEL_DOTNET_AUTO_METRICS_ENABLED
+              value: "true"
+            - name: OTEL_DOTNET_AUTO_LOGS_ENABLED
+              value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-dotnet
+  namespace: default
+spec:
+  selector:
+    app: test-dotnet
+  ports:
+    - protocol: TCP
+      port: 8090
+      targetPort: 8090
+      nodePort: 30060
+  type: NodePort
