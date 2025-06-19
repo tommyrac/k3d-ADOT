@@ -1,0 +1,46 @@
+# Custom values for Jaeger Helm chart
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+
+allInOne:
+  enabled: true
+  args:
+    - --collector.otlp.enabled=true
+  image:
+    repository: jaegertracing/all-in-one
+    tag: 1.53.0
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  servicePort: 16686
+  extraPorts:
+    - name: otlp-grpc
+      containerPort: 4317
+      protocol: TCP
+      servicePort: 4317
+    - name: otlp-http
+      containerPort: 4318
+      protocol: TCP
+      servicePort: 4318
+
+storage:
+  type: elasticsearch
+  elasticsearch:
+    host: elasticsearch-master.observability.svc.cluster.local
+    port: 9200
+    scheme: http
+    usePassword: false
+    indexPrefix: jaeger
+
+agent:
+  enabled: false
+collector:
+  enabled: false
+query:
+  enabled: false

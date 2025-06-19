@@ -123,8 +123,65 @@ resource "null_resource" "datadog_env_configmap" {
   }
 }
 
+resource "null_resource" "create_observability_namespace" {
+  depends_on = [null_resource.create_k3d_cluster]
+  provisioner "local-exec" {
+    command = "kubectl create namespace observability --dry-run=client -o yaml | kubectl apply -f -"
+  }
+}
+
+resource "null_resource" "deploy_jaeger" {
+  depends_on = [helm_release.elasticsearch, null_resource.create_observability_namespace]
+  provisioner "local-exec" {
+    command = "kubectl apply -f manifests/jaeger-deployment.yaml"
+  }
+}
+
+resource "helm_release" "elasticsearch" {
+  depends_on       = [null_resource.create_k3d_cluster]
+  name             = "elasticsearch"
+  namespace        = "observability"
+  create_namespace = true
+
+  repository = "https://helm.elastic.co"
+  chart      = "elasticsearch"
+  version    = "8.5.1"
+
+  set {
+    name  = "replicas"
+    value = "1"
+  }
+
+  set {
+    name  = "minimumMasterNodes"
+    value = "1"
+  }
+
+  set {
+    name  = "resources.requests.cpu"
+    value = "100m"
+  }
+
+  set {
+    name  = "resources.requests.memory"
+    value = "512Mi"
+  }
+
+  set {
+    name  = "resources.limits.cpu"
+    value = "1000m"
+  }
+
+  set {
+    name  = "resources.limits.memory"
+    value = "1Gi"
+  }
+}
+
+# Jaeger UI service is now included in the jaeger-deployment.yaml manifest
+
 resource "null_resource" "otel_collector" {
-  depends_on = [null_resource.wait_for_crds, null_resource.datadog_env_configmap]
+  depends_on = [null_resource.wait_for_crds, null_resource.datadog_env_configmap, null_resource.deploy_jaeger]
   provisioner "local-exec" {
     command = "kubectl apply -f manifests/otel-collector.yaml"
   }
@@ -165,7 +222,7 @@ resource "null_resource" "otel_collector" {
 
 
 resource "null_resource" "delete_k3d_cluster" {
-  depends_on = [helm_release.otel_operator, helm_release.cert_manager]
+  depends_on = [helm_release.otel_operator, helm_release.cert_manager, null_resource.deploy_jaeger, helm_release.elasticsearch]
   triggers = {
     always_run = timestamp()
   }

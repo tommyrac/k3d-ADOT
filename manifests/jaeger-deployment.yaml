@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: observability
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: jaegertracing/all-in-one:1.53.0
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--collector.otlp.enabled=true"
+          - "--collector.otlp.grpc.host-port=:4317"
+          - "--collector.otlp.http.host-port=:4318"
+        env:
+          - name: SPAN_STORAGE_TYPE
+            value: "elasticsearch"
+          - name: ES_SERVER_URLS
+            value: "https://elasticsearch-master.observability.svc.cluster.local:9200"
+          - name: ES_VERSION
+            value: "8"
+          - name: ES_TLS_ENABLED
+            value: "true"
+          - name: ES_TLS_SKIP_HOST_VERIFY
+            value: "true"
+          - name: ES_CREATE_INDEX_TEMPLATES
+            value: "true"
+          - name: ES_USERNAME
+            value: "elastic"
+          - name: ES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: elasticsearch-master-credentials
+                key: password
+        ports:
+          - containerPort: 5775
+            name: udp-5775
+            protocol: UDP
+          - containerPort: 6831
+            name: udp-6831
+            protocol: UDP
+          - containerPort: 6832
+            name: udp-6832
+            protocol: UDP
+          - containerPort: 5778
+            name: http-5778
+            protocol: TCP
+          - containerPort: 16686
+            name: http-16686
+            protocol: TCP
+          - containerPort: 14268
+            name: http-14268
+            protocol: TCP
+          - containerPort: 14250
+            name: grpc-14250
+            protocol: TCP
+          - containerPort: 4317
+            name: otlp-grpc
+            protocol: TCP
+          - containerPort: 4318
+            name: otlp-http
+            protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: observability
+  labels:
+    app: jaeger
+spec:
+  selector:
+    app: jaeger
+  ports:
+  - name: jaeger-collector-http
+    port: 14268
+    protocol: TCP
+    targetPort: 14268
+  - name: jaeger-collector-grpc
+    port: 14250
+    protocol: TCP
+    targetPort: 14250
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    protocol: TCP
+    targetPort: 4318
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: observability
+  labels:
+    app: jaeger
+spec:
+  type: NodePort
+  selector:
+    app: jaeger
+  ports:
+  - name: query-http
+    port: 16686
+    protocol: TCP
+    targetPort: 16686
+    nodePort: 30686

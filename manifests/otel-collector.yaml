@@ -74,6 +74,10 @@ spec:
         api:
           key: ${DATADOG_API_KEY}
           site: datadoghq.com
+      otlp/jaeger:
+        endpoint: jaeger-collector.observability.svc.cluster.local:4317
+        tls:
+          insecure: true
 
       # prometheusremotewrite:
       #   endpoint: "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
@@ -88,4 +92,4 @@ spec:
         traces:
           receivers: [otlp]
           processors: [batch, resourcedetection]
-          exporters: [debug, datadog]
+          exporters: [debug, datadog, otlp/jaeger]
