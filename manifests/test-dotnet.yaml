@@ -15,46 +15,21 @@ spec:
     spec:
       containers:
         - name: test-dotnet
-          image: localhost:5000/test-dotnet:latest8
-          imagePullPolicy: IfNotPresent
+          image: localhost:5000/test-dotnet:latest
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8090
+            - containerPort: 8010
           env:
-            # OpenTelemetry configuration
-            - name: AWS_PLUGIN_DISABLE
-              value: "true"
-            - name: OS_TYPE
-              value: "linux-glibc"
-            - name: ARCHITECTURE
-              value: "arm64"   # or "x64" if your container is x86_64
-            - name: AWS_LAMBDA_FUNCTION_NAME
-              value: ""
-            - name: OTEL_DOTNET_AUTO_HOME
-              value: "/root/.otel-dotnet-auto"
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "service.name=test-dotnet,service.namespace=default,service.version=1.0.0"
+              value: "service.name=test-dotnet,service.namespace=TestApps"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
-            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: "http://collector-collector.opentelemetry-operator-system.svc.cluster.local:4317"
-            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-              value: "grpc"
             - name: OTEL_TRACES_SAMPLER
-              value: "always_on"
-            - name: OTEL_TRACES_SAMPLER_ARG
-              value: "1.0"
-            - name: OTEL_SERVICE_NAME
-              value: "test-dotnet"
-            - name: ASPNETCORE_URLS
-              value: "http://+:8090"
-
-
+              value: "parentbased_always_on"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"
+            - name: OTEL_LOGS_EXPORTER
+              value: "otlp"
 ---
 apiVersion: v1
 kind: Service
@@ -66,7 +41,7 @@ spec:
     app: test-dotnet
   ports:
     - protocol: TCP
-      port: 8090
-      targetPort: 8090
-      nodePort: 30060
+      port: 80
+      targetPort: 8010
+      nodePort: 30010
   type: NodePort
